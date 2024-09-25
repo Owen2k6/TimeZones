@@ -1,0 +1,10 @@
+name: Timezones
+main: com.owen2k6.tiembones.main
+version: 1.0
+author: Owen2k6
+description: A plugin that adds time zones to Minecraft.
+
+commands:
+  date:
+    description: Shows the current date and time.
+    usage: /date
