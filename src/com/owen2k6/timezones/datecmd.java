@@ -44,7 +44,7 @@ public class datecmd implements CommandExecutor {
 
             // Calculate player's time zone offset based on their z-coordinate
             int z = location.getBlockZ();
-            int timeZoneOffset = z / 1000;  // Every 1,000 blocks represents 1 hour difference
+            int timeZoneOffset = z / 8333;  // Every 1,000 blocks represents 1 hour difference
 
             // Adjust the time to the player's local time zone, with tick 0 as 6 AM
             long localTimeInTicks = (internalTime - (timeZoneOffset * 1000) + 6000) % main.FULL_DAY_TICKS;

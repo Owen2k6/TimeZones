@@ -36,7 +36,7 @@ public class main extends JavaPlugin implements Listener {
 
         getServer().getScheduler().scheduleSyncRepeatingTask(this, this::updateInternalTime, 0L, 1L);
         getServer().getScheduler().scheduleSyncRepeatingTask(this, this::saveInternalTime, 0L, 6000L);
-        getServer().getScheduler().scheduleSyncRepeatingTask(this, this::updatePlayerTimes, 0L, 100L);
+        getServer().getScheduler().scheduleSyncRepeatingTask(this, this::updatePlayerTimes, 0L, 10L);
         getLogger().info("Timezones Plugin Enabled");
     }
 
@@ -66,7 +66,9 @@ public class main extends JavaPlugin implements Listener {
         }
 
         for (World world : Bukkit.getWorlds()) {
-            world.setFullTime(0L); // Keep the world time consistent
+            if (world.getTime() < 1000L){
+                world.setTime(0L); // Keep the world time consistent
+            }
         }
     }
 
@@ -89,11 +91,11 @@ public class main extends JavaPlugin implements Listener {
 
     long calculatePlayerTime(Location location) {
         int z = location.getBlockZ();
-        int timeZoneOffset = z / 1000;
+        int timeZoneOffset = z / 8333;
         double fractionalProgress = (z % 1000) / 1000.0;
-        long currentTime = (long) ((internalTime - (timeZoneOffset * 1000L)) % FULL_DAY_TICKS);
+        long currentTime = (long) ((internalTime - (timeZoneOffset * 1000)) % FULL_DAY_TICKS);
         if (currentTime < 0) currentTime += FULL_DAY_TICKS;
-        long nextTime = (long) ((internalTime - ((timeZoneOffset + 1) * 1000L)) % FULL_DAY_TICKS);
+        long nextTime = (long) ((internalTime - ((timeZoneOffset + 1) * 1000)) % FULL_DAY_TICKS);
         if (nextTime < 0) nextTime += FULL_DAY_TICKS;
         if (Math.abs(nextTime - currentTime) > FULL_DAY_TICKS / 2) {
             if (nextTime > currentTime) {
