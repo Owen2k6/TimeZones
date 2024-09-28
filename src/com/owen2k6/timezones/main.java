@@ -15,11 +15,13 @@ import static org.bukkit.Bukkit.getLogger;
 
 public class main extends JavaPlugin implements Listener {
 
-    private static final long FULL_DAY_TICKS = 24000L;
-    private static final double REAL_TICKS_PER_MINECRAFT_DAY = 72000.0;
-    private static final double TICKS_PER_MINECRAFT_TICK = FULL_DAY_TICKS / REAL_TICKS_PER_MINECRAFT_DAY;
+    public static final long FULL_DAY_TICKS = 24000L;
+    public static final double REAL_TICKS_PER_MINECRAFT_DAY = 864000.0;
+    public static final double TICKS_PER_MINECRAFT_TICK = FULL_DAY_TICKS / REAL_TICKS_PER_MINECRAFT_DAY;
 
     private double internalTime = 0.0;
+    private long worldDays = 0; // Add this field to track in-game days
+    private boolean dayIncremented = false; // Add this flag
 
     private File timeFile;
 
@@ -28,35 +30,52 @@ public class main extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(this, this);
         timeFile = new File(getDataFolder(), "time.yml");
         internalTime = loadInternalTime();
+
+        // Register the /date command
+        getCommand("date").setExecutor(new datecmd(this));
+
         getServer().getScheduler().scheduleSyncRepeatingTask(this, this::updateInternalTime, 0L, 1L);
         getServer().getScheduler().scheduleSyncRepeatingTask(this, this::saveInternalTime, 0L, 6000L);
         getServer().getScheduler().scheduleSyncRepeatingTask(this, this::updatePlayerTimes, 0L, 100L);
         getLogger().info("Timezones Plugin Enabled");
     }
 
+
     @Override
     public void onDisable() {
         saveInternalTime();
         getLogger().info("Timezones Plugin Disabled");
     }
+
     private void saveInternalTime() {
         saveWorldTime(internalTime);
     }
 
     private void updateInternalTime() {
         internalTime = (internalTime + TICKS_PER_MINECRAFT_TICK) % FULL_DAY_TICKS;
+
+        // Ensure worldDays increments once per day when crossing midnight
+        if (internalTime >= 18000 && !dayIncremented) {
+            worldDays++;  // Increment worldDays only once per day
+            dayIncremented = true;  // Set the flag to prevent multiple increments
+        }
+
+        // Reset the flag after passing midnight (when the time goes below 18,000)
+        if (internalTime < 18000) {
+            dayIncremented = false;  // Reset flag so the next day can be incremented
+        }
+
         for (World world : Bukkit.getWorlds()) {
-            world.setFullTime(0L);
+            world.setFullTime(0L); // Keep the world time consistent
         }
     }
+
 
     private void updatePlayerTimes() {
         for (Player player : Bukkit.getOnlinePlayers()) {
             Location location = player.getLocation();
             long adjustedTime = calculatePlayerTime(location);
             player.setPlayerTime(adjustedTime, true);
-            player.sendMessage("Your adjusted time is: " + adjustedTime);
-            player.sendMessage("The time zone is: " + (location.getBlockZ() / 1000));
         }
     }
 
@@ -68,7 +87,7 @@ public class main extends JavaPlugin implements Listener {
         player.setPlayerTime(adjustedTime, true);
     }
 
-    private long calculatePlayerTime(Location location) {
+    long calculatePlayerTime(Location location) {
         int z = location.getBlockZ();
         int timeZoneOffset = z / 1000;
         double fractionalProgress = (z % 1000) / 1000.0;
@@ -96,12 +115,24 @@ public class main extends JavaPlugin implements Listener {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(timeFile))) {
                 writer.write("internal-time: " + worldTime);
                 writer.newLine();
+                writer.write("world-days: " + worldDays); // Save worldDays
+                writer.newLine();
             }
         } catch (IOException e) {
             e.printStackTrace();
             getLogger().severe("Failed to save internal time!");
         }
     }
+
+
+    public long getWorldDays() {
+        return worldDays;
+    }
+
+    public double getInternalTime() {
+        return internalTime;
+    }
+
 
     private double loadInternalTime() {
         if (!timeFile.exists()) {
@@ -112,7 +143,9 @@ public class main extends JavaPlugin implements Listener {
             String line;
             while ((line = reader.readLine()) != null) {
                 if (line.startsWith("internal-time: ")) {
-                    return Double.parseDouble(line.replace("internal-time: ", "").trim());
+                    internalTime = Double.parseDouble(line.replace("internal-time: ", "").trim());
+                } else if (line.startsWith("world-days: ")) {
+                    worldDays = Long.parseLong(line.replace("world-days: ", "").trim()); // Load worldDays
                 }
             }
         } catch (IOException e) {
@@ -120,6 +153,7 @@ public class main extends JavaPlugin implements Listener {
             getLogger().severe("Failed to load internal time!");
         }
 
-        return 0.0;
+        return internalTime;
     }
+
 }
