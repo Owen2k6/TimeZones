@@ -69,12 +69,6 @@ public class main extends JavaPlugin implements Listener {
             starting = false;
         }
 
-//        for (World world : Bukkit.getWorlds()) {
-//            if (world.getTime() < 1000L){
-//                world.setTime(0L); // Keep the world time consistent
-//            }
-//        }
-
         World mainWorld = Bukkit.getWorld("world");
         if (mainWorld != null) {
             Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
