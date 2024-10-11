@@ -16,11 +16,41 @@ import java.util.Locale;
 public class datecmd implements CommandExecutor {
 
     private final main plugin;
-    private final String[] weekdays = {"Moleday", "Unityday", "Ekzday", "Ictoriaday", "Vikingday", "Floriday", "Crownday"};
+    private final String[] weekdays = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+    private final String[] mweekdays = {"Moleday", "Unityday", "Ekzday", "Ictoriaday", "Vikingday", "Floriday", "Crownday"};
 
     public datecmd(main main) {
         this.plugin = main;
     }
+
+    private LocalDate calculateLocalDate(LocalDate centralDate, long internalTime, int timeZoneOffset) {
+        // Calculate the local time in ticks, starting from 6 AM (6000 ticks)
+        long localTimeInTicks = (internalTime - (timeZoneOffset * 1000) + 6000) % main.FULL_DAY_TICKS;
+
+        // Adjust negative ticks to stay within the 24-hour range
+        if (localTimeInTicks < 0) {
+            localTimeInTicks += main.FULL_DAY_TICKS;
+        }
+
+        // Calculate the local hours from ticks (1,000 ticks = 1 hour)
+        long localHours = (localTimeInTicks / 1000) % 24;
+
+        // Determine if the local time shifts into a different day
+        // For example, if the central time is 23:00 and time zone is -2, local time becomes 21:00 (same day)
+        // But if the central time is 01:00 and time zone is +2, local time becomes 03:00 (next day)
+        long centralHours = ((internalTime + 6000) / 1000) % 24;
+        if (localHours < centralHours) {
+            // Local time is "earlier" than central time: move to previous day
+            return centralDate.minusDays(1);
+        } else if (localHours > centralHours) {
+            // Local time is "later" than central time: move to next day
+            return centralDate.plusDays(1);
+        } else {
+            // No day shift, return the central date as local date
+            return centralDate;
+        }
+    }
+
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -38,6 +68,7 @@ public class datecmd implements CommandExecutor {
 
             // Calculate the current weekday (starting from Friday, 1st January 1960)
             String weekday = weekdays[(int) ((worldDays + 4) % 7)];  // Adjust for starting from Friday (index 4)
+            String mweekday = mweekdays[(int) ((worldDays + 4) % 7)];  // Adjust for starting from Friday (index 4)
 
             // Format the date with ordinal suffix (st, nd, rd, th)
             String formattedDate = formatDateWithOrdinal(centralDate);
@@ -60,15 +91,18 @@ public class datecmd implements CommandExecutor {
 
             // Create a LocalTime object based on the calculated hours and minutes
             LocalTime localTime = LocalTime.of((int) localHours, (int) localMinutes);
-
+            LocalDate localDate = calculateLocalDate(centralDate, internalTime, timeZoneOffset);
+            String localFormattedDate = formatDateWithOrdinal(localDate);
+            String localWeekday = weekdays[localDate.getDayOfWeek().getValue() % 7];
+            String localMweekday = mweekdays[localDate.getDayOfWeek().getValue() % 7];
             // Determine the time zone display (GT+ or GT-)
             String timeZoneDisplay;
             if (timeZoneOffset < 0) {
-                timeZoneDisplay = "GT+" + Math.abs(timeZoneOffset);
+                timeZoneDisplay = "GCT+" + Math.abs(timeZoneOffset);
             } else if (timeZoneOffset > 0) {
-                timeZoneDisplay = "GT-" + timeZoneOffset;
+                timeZoneDisplay = "GCT-" + timeZoneOffset;
             } else {
-                timeZoneDisplay = "GT";
+                timeZoneDisplay = "GCT";
             }
 
             // Central time as hours and minutes (tick 0 = 6 AM)
@@ -77,8 +111,13 @@ public class datecmd implements CommandExecutor {
             LocalTime centralTime = LocalTime.of((int) centralHours, (int) centralMinutes);
 
             // Send the formatted and coloured messages to the player
+            player.sendMessage(ChatColor.GOLD + "========== Goplexia Centre Time ==========");
             player.sendMessage(ChatColor.GOLD + "Central date: " + ChatColor.AQUA + weekday + " the " + formattedDate);
+            player.sendMessage(ChatColor.GOLD + "Central traditional date: " + ChatColor.AQUA + mweekday + " the " + formattedDate);
             player.sendMessage(ChatColor.GOLD + "Central time: " + ChatColor.AQUA + centralTime.toString());
+            player.sendMessage(ChatColor.GOLD + "==========      Local Time      ==========");
+            player.sendMessage(ChatColor.GOLD + "Local date: " + ChatColor.AQUA + localWeekday + " the " + localFormattedDate);
+            player.sendMessage(ChatColor.GOLD + "Local traditional date: " + ChatColor.AQUA + localMweekday + " the " + localFormattedDate);
             player.sendMessage(ChatColor.GOLD + "Local time: " + ChatColor.AQUA + localTime.toString() + " (" + timeZoneDisplay + ")");
 
             return true;
